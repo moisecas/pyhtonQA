@@ -8,11 +8,11 @@ from selenium.webdriver.support import expected_conditions as EC
 
 # Lista de jugadores
 players = [
-    "TEST_GM2", "test_dev_04", "DANIELTEST01", "TESTSKIN2_1", "SWAGGER", "YOYDEV",
+    "test_dev_04", "DANIELTEST01", "TESTSKIN2_1", "SWAGGER", "YOYDEV",
     "darling_qa2", "juaquina", "yexibel", "Carlos", "Carlos1", "e2fm", "daniel740",
     "pruebacorreo", "Anav", "MANUEL", "Marvin", "BONO_BO", "TEST_VERIFICACION_CORREO",
     "HILLSONG", "TESTBONUS_SK2", "TESTINGQA", "TEST.REGISTRO", "TESTSKIN2_7",
-    "TEST_NOTIFICACIONES", "TEST_AUTOLIMITACIONES"
+    "TEST_NOTIFICACIONES", "TEST_AUTOLIMITACIONES", "TEST_GM5" 
 ]
 
 # Valor de contraseña 
