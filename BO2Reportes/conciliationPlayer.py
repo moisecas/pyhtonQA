@@ -16,7 +16,7 @@ USERS = [
         "password": "N3wP@ssw0rd2024",
     },
     {
-        "name": "Andes",
+        "name": "QA2",
         "base_url": "https://backoffice-v2.qa.wcbackoffice.com",
         "username": "ddiaz",
         "password": "N3wP@ssw0rd2024",
