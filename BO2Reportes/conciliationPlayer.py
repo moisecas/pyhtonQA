@@ -2,7 +2,15 @@
 
 import os
 from datetime import datetime
+from dotenv import load_dotenv
+from pathlib import Path  
 from playwright.sync_api import sync_playwright
+
+# ————— Carga del .env ANTES de usar os.getenv —————
+# __file__ apunta a ...\BO2Reportes\conciliationPlayer.py
+project_root = Path(__file__).parent.parent  # ...\Documents\retirosskin2
+dotenv_path  = project_root / ".env"
+load_dotenv(dotenv_path)
 
 # ————— Configuración —————
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloads")
@@ -13,13 +21,13 @@ USERS = [
         "name": "QA",
         "base_url": "https://backoffice-v2.qa.wcbackoffice.com",
         "username": "efermin",
-        "password": "N3wP@ssw0rd2024",
+        "password": os.getenv("EFERMIN_PASS"),
     },
     {
         "name": "QA2",
         "base_url": "https://backoffice-v2.qa.wcbackoffice.com",
         "username": "ddiaz",
-        "password": "N3wP@ssw0rd2024",
+        "password": os.getenv("DDIAZ_PASS"), 
     }
 ]
 
