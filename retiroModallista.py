@@ -7,12 +7,11 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 # Lista de jugadores
-players = [
-    "test_dev_04", "DANIELTEST01", "TESTSKIN2_1", "SWAGGER", "YOYDEV",
-    "darling_qa2", "juaquina", "yexibel", "Carlos", "Carlos1", "e2fm", "daniel740",
-    "pruebacorreo", "Anav", "MANUEL", "Marvin", "BONO_BO", "TEST_VERIFICACION_CORREO",
+players = [ 
+     "VERONICA262","test_dev_04", "DANIELTEST01","YOYDEV", "CRIS_QA", 
+     "CARLOSTRONXA","BONO_BO", "TEST_VERIFICACION_CORREO",
     "HILLSONG", "TESTBONUS_SK2", "TESTINGQA", "TEST.REGISTRO", "TESTSKIN2_7",
-    "TEST_NOTIFICACIONES", "TEST_AUTOLIMITACIONES", "TEST_GM5" 
+    "TEST_NOTIFICACIONES", "TEST_AUTOLIMITACIONES", "TEST_GM5", "courtney84" 
 ]
 
 # Valor de contraseña 
