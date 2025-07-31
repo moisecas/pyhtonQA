@@ -7,21 +7,21 @@ import pandas as pd
 from datetime import datetime
 
 # ————— Configuración —————
-EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\balance (20).xlsx"
-EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\pokerenchile1día.xlsx"
+EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\balance (76).xlsx" #bo2
+EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\uibalanceconciliationqa.xlsx" #ui 
 
 # Columnas esperadas (en el orden solicitado), tal cual aparecen en el Excel
 COLUMNS = [
-    "Fecha",
-    "Monto",
-    "Balance",
-    "Transacción",
-    "Tipo de Movimiento",
-    "Tipo de Bono",
-    "Usuario",
-    "Nro. Documento",
-    "Cajero",
-    "Observaciones",
+    "fecha",
+    "monto",
+    "balance",
+    "transacción",
+    "tipo de movimiento",
+    "tipo de bono",
+    "usuario",
+    "nro. documento",
+    "cajero",
+    "observaciones",
 ]
 
 # Lo mismo pero en minúsculas para mapeo interno

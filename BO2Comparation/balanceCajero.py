@@ -8,8 +8,8 @@ import pandas as pd
 from datetime import datetime
 
 # ————— Configuración —————
-EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\balance_skin (45).xlsx"
-EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\balanceSkin (1).xlsx"
+EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\balance_skin (63).xlsx" #bo2
+EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\balanceSkin (7).xlsx" #bo1 
 
 # Columnas exactas del nuevo reporte, en minúsculas y sin tildes
 COLUMNS_EXPECTED = [
