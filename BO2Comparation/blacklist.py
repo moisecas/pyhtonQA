@@ -8,8 +8,8 @@ import pandas as pd
 from datetime import datetime
 
 # ————— Configuración —————
-EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\blacklist 23-07-2025 (8).xlsx" # Archivo exportado del back-office
-EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\blacklistuiactivos.xlsx"     # Archivo UI contra el que comparas
+EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\blacklist 01-08-2025.xlsx"  # Archivo exportado del back-office
+EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\blacklistidjugador.xlsx" # Archivo UI contra el que comparas
 HTML_REPORT_PATH  = "diferencias_blacklist.html"
 
 # Columnas EXACTAS del reporte de lista negra,

@@ -7,8 +7,8 @@ import pandas as pd
 from datetime import datetime
 
 # ————— Configuración —————
-EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\PlayerBalanceReport-ALBIVERDEPARCERITO1866 (11).xlsx"
-EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\rango max balance.xlsx"
+EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\PlayerBalanceReport-VERONICARIQUELME.xlsx"
+EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\uiundiabalancejugadorpro.xlsx"
 
 # Columnas exactas compartidas por ambos archivos
 COLUMNS = [
