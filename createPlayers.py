@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-# createPlayers.py — flujo de registro en Skin2 sin dependencia de python-dotenv
+
+# crear jugadores skin2 
 
 import time
 import os
@@ -7,16 +7,16 @@ import sys
 from pathlib import Path
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
 
-BASE_URL = "https://skin2-pokerenchile.dev.andes-system.com/"
+BASE_URL = "https://skin2-latamwin.dev.andes-system.com/"
 
 # ————— Datos de registro —————
-RUT       = "5045577-7"
+RUT       = "12209454-5"
 FIRST     = "Juan"
 LAST      = "Pérez"
-BIRTH_DAY = "miércoles, 27 de junio de 2007"
-USERNAME  = "nuevo_usuario_54"
-EMAIL     = "dessaxittoiffe-8008@yopmail.com"
-PHONE     = "56942816699"
+BIRTH_DAY = "lunes, 10 de septiembre de 2007"
+USERNAME  = "nuevo_usuario_75"
+EMAIL     = "xuhuvogeffi-6541@yopmail.com"
+PHONE     = "977446117"
 PASSWORD  = "Cc12345678@@"
 CITY      = "Santiago"
 COUNTRY   = "Chile"
@@ -33,24 +33,22 @@ SELECTORS = {
     "birth_day":        f"//div[@aria-label='Choose {BIRTH_DAY}']",
     "next1":            "//button[@data-testid='button-submit-step-1']",
     "username":         "//input[@placeholder='Nombre de usuario']",
-    "email":            "//input[@placeholder='Correo']",
-    "phone":            "//input[@placeholder='Celular']",
+    "email":            "//input[@placeholder='Correo electrónico']",
+    "phone":            "//input[@placeholder='Nro. de Teléfono']",
     "password":         "//input[@placeholder='Contraseña']",
     "confirm_password": "//input[@placeholder='Confirmar contraseña']",
     "city":             "//input[@placeholder='Ciudad']",
     "country_select":   "//select[@name='country_id']",
     "next2":            "//button[@data-testid='button-submit-step-2']",
-    "accept_button":    "//button[normalize-space()='Acepto']",
+    "accept_button":    "//button[normalize-space()='Estoy de acuerdo']",
     "final_button":     "//span[@class='mr-1']",
 }
 
 TERMS_LINK_SELECTORS = [
-    "//div[@data-testid='terms-and-conditions-link-id']//div[@class='text-sm']",
-    "//span[normalize-space()='Términos y condiciones']"
+    "//span[normalize-space()='términos y condiciones']"
 ]
 PRIVACY_LINK_SELECTORS = [
-    "//div[@data-testid='privacy-policy-link-id']//div[@class='text-sm']",
-    "//span[normalize-space()='Políticas de privacidad']"
+    "//span[normalize-space()='políticas de privacidad']"
 ]
 CONFIRM_AGE_SELECTOR = "//span[contains(text(),'Confirmo que soy mayor de 18 años')]"
 

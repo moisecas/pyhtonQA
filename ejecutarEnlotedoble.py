@@ -32,30 +32,67 @@ def main():
         time.sleep(0.5)
         driver.execute_script("arguments[0].click();", checkbox)
 
+        from selenium.common.exceptions import NoSuchElementException
+
         # 4. Clic en "Ejecutar"
-        ejecutar_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class,'btn-inverse')]")))
+        ejecutar_btn = wait.until(EC.element_to_be_clickable(
+            (By.XPATH, "//button[contains(@class,'btn-inverse')]")
+        ))
         driver.execute_script("arguments[0].click();", ejecutar_btn)
 
-        # 5. Seleccionar "Procesar"
-        action_select = wait.until(EC.visibility_of_element_located((By.XPATH, "//select[@name='action']")))
-        Select(action_select).select_by_visible_text("Procesar")
+        # 5. Seleccionar acción: buscar por name EXACTO, por 'action' o por nombre que termine en '-action'
+        action_select = wait.until(EC.visibility_of_element_located((
+            By.XPATH,
+            "//select[@name='5973-action']"
+            " | //select[@name='action']"
+            " | //select[substring(@name, string-length(@name)-7)='-action']"
+        )))
+        sel_action = Select(action_select)
 
-        # 6. Seleccionar "Banco de Chile"
+        # Preferir "Procesar"; si no, probar "Procesar en Lote"; si tampoco, elegir la que contenga "Procesar"
+        try:
+            sel_action.select_by_visible_text("Procesar")
+        except NoSuchElementException:
+            try:
+                sel_action.select_by_visible_text("Procesar en Lote")
+            except NoSuchElementException:
+                opts = [o.text.strip() for o in sel_action.options]
+                print("Opciones de acción disponibles:", opts)
+                clicked = False
+                for o in sel_action.options:
+                    if "Procesar" in o.text:
+                        o.click()
+                        clicked = True
+                        break
+                if not clicked:
+                    raise
+
+        # 5.1 Espera solicitada (habilita dependencias del formulario)
+        time.sleep(5)
+
+        # 6. Seleccionar banco "BCI"
         bank_select = wait.until(EC.visibility_of_element_located((By.XPATH, "//select[@name='bank']")))
-        Select(bank_select).select_by_visible_text("Banco de Chile")
+        Select(bank_select).select_by_visible_text("BCI")
 
-        # 7. Clic en "Guardar"
-        save_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@type='submit' and contains(@class,'btn-primary')]")))
+        # 7. Guardar (botón a la derecha)
+        try:
+            save_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@class='btn btn-primary float-end']")))
+        except TimeoutException:
+            save_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[contains(@class,'btn-primary') and contains(@class,'float-end')]")))
         driver.execute_script("arguments[0].click();", save_btn)
 
-        # 8. Confirmar pulsando "Sí" hasta 5 veces
-        yes_btn = wait.until(EC.element_to_be_clickable((By.XPATH, "//button[@class='btn btn-danger' and normalize-space()='Sí']")))
+        # 8. Confirmar "Sí" si aparece (hasta 5 veces)
         for i in range(5):
-            driver.execute_script("arguments[0].click();", yes_btn)
-            print(f"Confirmación {i+1} en iteración {run+1}")
-            time.sleep(0.5)
+            try:
+                yes_btn = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[@class='btn btn-danger' and normalize-space()='Sí']"))
+                )
+                driver.execute_script("arguments[0].click();", yes_btn)
+                print(f"Confirmación {i+1}")
+                time.sleep(0.4)
+            except TimeoutException:
+                break
 
-        time.sleep(2)  # breve pausa antes de la siguiente iteración
 
     print("✅ Flujo completado dos veces.")
     time.sleep(5)

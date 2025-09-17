@@ -1,175 +1,309 @@
 #!/usr/bin/env python3
-# comparar ui con excel archivos de hashes críticos 
+# compare_repo_paquetes.py — Compara reportes con columnas:
+# Proyecto | Versión | Última actualización | Archivo | Ruta | Hash
 
 import os
 import re
-import sys
-import logging
-import argparse
-from pathlib import Path
-from dotenv import load_dotenv
-from playwright.sync_api import sync_playwright, TimeoutError as PWTimeoutError
+import math
 import pandas as pd
+from datetime import datetime
 
-# ————— Setup logging —————
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+# ========= Config =========
+EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\critical-files (15).xlsx"  # <- BO2
+EXCEL_UI_PATH     = r"c:\Users\moise\Downloads\criticalui.xlsx"         # <- UI
+HTML_REPORT_PATH  = "diferencias_comparacion_repo.html"
 
-# ————— Carga de .env —————
-project_root = Path(__file__).parent
-load_dotenv(project_root.parent / ".env")
-
-# ————— Hashes conocidos (de Excel), hardcodeados —————
-# Nota: si quieres cargar desde un CSV/JSON externo, puedes reemplazar este bloque.
-HARDCODED_HASHES = [
-   
+COLUMNS = [
+    "Proyecto",
+    "Versión",
+    "Última actualización",
+    "Archivo",
+    "Ruta",
+    "Hash",
 ]
+COLUMNS_LOWER = [c.lower() for c in COLUMNS]
 
-# ————— Parsers y selectores —————
-SEL_USER_FIELD = "input[placeholder='Usuario']"
-SEL_PASS_FIELD = "input[placeholder='Contraseña']"
-SEL_LOGIN_BTN  = "input[value='Ingresar']"
-SEL_TABLE_ROW  = "table tbody tr"
-SEL_NEXT_BTN   = "//a[normalize-space()='Siguiente']"
-HASH_COL_INDEX = 2  # columna 0-based donde está el hash en la tabla web
+# ========= Normalizadores =========
+def normalize_fecha(valor) -> str:
+    if isinstance(valor, (pd.Timestamp, datetime)):
+        # Si tiene hora distinta de 00:00:00, incluimos hora
+        if getattr(valor, "hour", 0) or getattr(valor, "minute", 0) or getattr(valor, "second", 0):
+            return valor.strftime("%Y-%m-%d %H:%M:%S")
+        return valor.strftime("%Y-%m-%d")
 
-# ————— Argumentos de línea de comandos —————
-def parse_args():
-    p = argparse.ArgumentParser(description="Compara hashes hardcodeados vs web")
-    p.add_argument("--base-url", default="https://backoffice-v2.qa.wcbackoffice.com",
-                   help="URL base del BackOffice")
-    p.add_argument("--user", default="efermin", help="Usuario para login")
-    p.add_argument("--excel-hashes", type=Path,
-                   help="(Opcional) Ruta a Excel/CSV con hashes en lugar de hardcodear",
-                   default=None)
-    p.add_argument("--output-html", type=Path,
-                   default=project_root/"reporte_comparacion.html",
-                   help="Ruta donde guardar el HTML de reporte")
-    return p.parse_args()
+    s = str(valor).strip()
+    if not s:
+        return ""
 
-def get_web_hashes(base_url: str, user: str, password: str) -> set[str]:
-    """Abre Playwright, hace login y extrae hashes de dos páginas."""
-    logging.info("Lanzando Playwright y extrayendo hashes de la web...")
-    try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True)
-            ctx     = browser.new_context()
-            page    = ctx.new_page()
+    # Formatos comunes con hora
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%d/%m/%Y %H:%M:%S", "%d-%m-%Y %H:%M:%S",
+                "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            pass
 
-            # Login
-            page.goto(base_url, wait_until="networkidle")
-            page.fill(SEL_USER_FIELD, user)
-            page.fill(SEL_PASS_FIELD, password)
-            page.click(SEL_LOGIN_BTN)
-            page.wait_for_load_state("networkidle")
+    # Solo fecha
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+        except Exception:
+            pass
 
-            # Página 1
-            page.goto(f"{base_url}/admin/critical-files", wait_until="networkidle")
-            hashes = extract_hashes(page)
+    return s  # tal cual si no pudimos parsear
 
-            # Página 2
-            page.click(SEL_NEXT_BTN)
-            page.wait_for_selector(SEL_TABLE_ROW, timeout=10_000)
-            hashes += extract_hashes(page)
+def normalize_texto(valor) -> str:
+    return str(valor).strip().lower()
 
-            ctx.close()
-            browser.close()
-    except PWTimeoutError as e:
-        logging.error("Timeout extrayendo datos de la web: %s", e)
-        sys.exit(2)
+_semver_re = re.compile(r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?")
+def normalize_version(valor):
+    """
+    Normaliza versión a tupla de números (mayor, menor, parche).
+    'v1.2.3-beta' -> (1,2,3). Si falta, se asume 0.
+    Para comparar devolvemos la tupla; para mostrar, devolvemos string limpio.
+    """
+    s = str(valor).strip().lower()
+    if not s:
+        return (0,0,0)
+    m = _semver_re.match(s)
+    if not m:
+        return (0,0,0) if s in ("", "nan", "none") else (s,)  # mantiene no parsables como string
+    parts = [int(p) if p is not None else 0 for p in m.groups()]
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
 
-    unique = set(hashes)
-    logging.info("Encontrados %d hashes únicos en la web.", len(unique))
-    return unique
+def normalize_path(valor) -> str:
+    """
+    Unifica separadores, quita doble slash, barra final y lowercase.
+    """
+    s = str(valor).strip()
+    if not s:
+        return ""
+    s = s.replace("\\", "/")
+    s = re.sub(r"/+", "/", s)
+    if s.endswith("/") and s != "/":
+        s = s[:-1]
+    return s.lower()
 
-def extract_hashes(page, col_index: int = HASH_COL_INDEX) -> list[str]:
-    lst = []
-    for row in page.query_selector_all(SEL_TABLE_ROW):
-        cells = row.query_selector_all("td")
-        if len(cells) > col_index:
-            lst.append(cells[col_index].inner_text().strip())
-    return lst
+def normalize_hash(valor) -> str:
+    """
+    Quita espacios y prefijo 0x, deja solo [0-9a-f] en lowercase.
+    """
+    s = str(valor).strip().lower().replace(" ", "")
+    if s.startswith("0x"):
+        s = s[2:]
+    s = re.sub(r"[^0-9a-f]", "", s)
+    return s
 
-def load_excel_hashes(path: Path) -> list[str]:
-    """Si se provee un Excel o CSV, carga su columna de hash."""
-    if path.suffix.lower() in (".xlsx", ".xls"):
-        df = pd.read_excel(path, dtype=str)
-    else:
-        df = pd.read_csv(path, dtype=str)
-    df = df.dropna().astype(str).applymap(str.strip)
-    # Buscar la columna que contenga 'hash'
-    cols = [c for c in df.columns if "hash" in c.lower()]
-    if not cols:
-        raise ValueError(f"No encontré columna con 'hash' en {path.name}")
-    return df[cols[0]].tolist()
+NORMALIZERS_LOWER = {
+    "proyecto": normalize_texto,
+    "versión": normalize_version,
+    "última actualización": normalize_fecha,
+    "archivo": normalize_texto,
+    "ruta": normalize_path,
+    "hash": normalize_hash,
+}
 
-def generate_html_report(web: set[str],
-                         excel: set[str],
-                         duplicates: int,
-                         total_excel: int,
-                         out: Path) -> None:
-    """Genera un HTML con la comparación."""
-    from datetime import datetime
-    df = pd.DataFrame({
-        "hash": sorted(excel),
-        "estado": ["Encontrado" if h in web else "No encontrado" for h in sorted(excel)]
-    })
-    html_table = df.to_html(index=False, border=1, justify="center")
+# ========= Carga dinámica de Excel =========
+def load_excel_dynamic(excel_path: str, columns_expected_lower: list) -> pd.DataFrame:
+    if not os.path.exists(excel_path):
+        print(f"❌ No existe el archivo: {excel_path}")
+        return pd.DataFrame()
+
+    df_raw = pd.read_excel(excel_path, header=None, dtype=str)
+    df_raw = df_raw.fillna("").astype(str).applymap(lambda x: x.strip())
+
+    header_idx = None
+    for idx, row in df_raw.iterrows():
+        vals = [cell.strip().lower() for cell in row.tolist()]
+        if all(col in vals for col in columns_expected_lower):
+            header_idx = idx
+            break
+
+    if header_idx is None:
+        print(f"❌ No encontré encabezado en '{os.path.basename(excel_path)}' con {columns_expected_lower}")
+        return pd.DataFrame()
+
+    df = pd.read_excel(excel_path, header=header_idx)
+    df.columns = [str(c).strip() for c in df.columns]
+
+    cols_lower_actuales = [c.lower() for c in df.columns]
+    mapa_real = {low: real for real, low in zip(df.columns, cols_lower_actuales)}
+
+    missing = [c for c in columns_expected_lower if c not in mapa_real]
+    if missing:
+        print(f"❌ En '{os.path.basename(excel_path)}' faltan columnas: {missing}")
+        return pd.DataFrame()
+
+    ordered_real = [mapa_real[c] for c in columns_expected_lower]
+    out = df[ordered_real].copy().fillna("")
+    out.columns = columns_expected_lower
+    return out.reset_index(drop=True)
+
+# ========= Clave y comparación =========
+KEY_COLS = ["proyecto", "archivo", "ruta"]  # clave lógica del ítem
+
+def make_key(row) -> tuple:
+    return (
+        NORMALIZERS_LOWER["proyecto"](row["proyecto"]),
+        NORMALIZERS_LOWER["archivo"](row["archivo"]),
+        NORMALIZERS_LOWER["ruta"](row["ruta"]),
+    )
+
+def normalize_cell(col_low: str, val):
+    fn = NORMALIZERS_LOWER.get(col_low, normalize_texto)
+    return fn(val)
+
+def compare_sets(df_export: pd.DataFrame, df_ui: pd.DataFrame, columns_lower: list):
+    # Mapear por clave
+    map_export = {make_key(r): r for _, r in df_export.iterrows()}
+    map_ui     = {make_key(r): r for _, r in df_ui.iterrows()}
+
+    keys_exp = set(map_export.keys())
+    keys_ui  = set(map_ui.keys())
+
+    only_in_export = sorted(list(keys_exp - keys_ui))
+    only_in_ui     = sorted(list(keys_ui - keys_exp))
+    common_keys    = sorted(list(keys_exp & keys_ui))
+
+    diffs = []  # (key_tuple, col_low, val_exp_disp, val_ui_disp)
+    for k in common_keys:
+        row_e = map_export[k]
+        row_u = map_ui[k]
+        for col_low in columns_lower:
+            # Mostrar “Versión” como string legible, pero comparar tuplas
+            val_e_norm = normalize_cell(col_low, row_e[col_low])
+            val_u_norm = normalize_cell(col_low, row_u[col_low])
+
+            equal = False
+            if isinstance(val_e_norm, tuple) and isinstance(val_u_norm, tuple):
+                equal = (val_e_norm == val_u_norm)
+                # display amigable
+                val_e_disp = ".".join(map(str, val_e_norm[:3])) if all(isinstance(x,int) for x in val_e_norm[:3]) else str(val_e_norm)
+                val_u_disp = ".".join(map(str, val_u_norm[:3])) if all(isinstance(x,int) for x in val_u_norm[:3]) else str(val_u_norm)
+            else:
+                equal = (str(val_e_norm) == str(val_u_norm))
+                val_e_disp = str(val_e_norm)
+                val_u_disp = str(val_u_norm)
+
+            if not equal:
+                diffs.append((k, col_low, val_e_disp, val_u_disp))
+
+    return only_in_export, only_in_ui, diffs
+
+# ========= HTML =========
+def key_to_text(key_tuple: tuple) -> str:
+    proyecto, archivo, ruta = key_tuple
+    return f"{proyecto} | {archivo} | {ruta}"
+
+def generate_html_report_repo(only_export, only_ui, diffs, out_path: str):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def rows_missing(keys):
+        if not keys:
+            return '<tr><td colspan="1" style="text-align:center">—</td></tr>'
+        return "\n".join(f"<tr><td>{key_to_text(k)}</td></tr>" for k in keys)
+
+    def to_title(col_low: str) -> str:
+        return " ".join(p.capitalize() for p in col_low.split())
+
+    def rows_diffs(diffs):
+        if not diffs:
+            return '<tr><td colspan="4" style="text-align:center">—</td></tr>'
+        out = []
+        for k, col_low, ve, vu in diffs:
+            out.append(f"""
+            <tr>
+              <td>{key_to_text(k)}</td>
+              <td>{to_title(col_low)}</td>
+              <td>{ve}</td>
+              <td>{vu}</td>
+            </tr>""")
+        return "\n".join(out)
+
     html = f"""<!DOCTYPE html>
 <html lang="es">
-<head><meta charset="UTF-8"><title>Reporte de Hashes</title>
-<style>
-  body{{font-family:Arial,sans-serif;margin:2em;}}
-  table{{border-collapse:collapse;width:100%;}}
-  th,td{{padding:8px;text-align:center;border:1px solid #ccc;}}
-  th{{background-color:#f2f2f2;}}
-  .Encontrado{{background-color:#d4edda;}}
-  .No\\ encontrado{{background-color:#f8d7da;}}
-</style></head>
+<head>
+  <meta charset="utf-8" />
+  <title>Comparación de Paquetes/Builds</title>
+  <style>
+    body {{ font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; }}
+    h1 {{ margin: 0 0 8px 0; }}
+    .section {{ margin-top: 24px; }}
+    table {{ width: 100%; border-collapse: collapse; }}
+    th, td {{ border: 1px solid #ddd; padding: 8px; font-size: 14px; }}
+    th {{ background: #f5f7fb; text-align: left; }}
+    .muted {{ color: #666; }}
+  </style>
+</head>
 <body>
-  <h1>📊 Reporte de Comparación de Hashes</h1>
-  <p>Generado: {datetime.now().isoformat()}</p>
-  <ul>
-    <li>Hashes extraídos de la web: <strong>{len(web)}</strong></li>
-    <li>Total en Excel (bruto): <strong>{total_excel}</strong></li>
-    <li>Únicos en Excel: <strong>{len(excel)}</strong></li>
-    <li>Duplicados en Excel: <strong>{duplicates}</strong></li>
-    <li>No encontrados: <strong>{len(excel - web)}</strong></li>
-  </ul>
-  {html_table}
+  <h1>Comparación de reportes</h1>
+  <div class="muted">Generado: {ts}</div>
+
+  <div class="section">
+    <h2>Faltan en UI</h2>
+    <table>
+      <thead><tr><th>Clave (proyecto | archivo | ruta)</th></tr></thead>
+      <tbody>
+        {rows_missing(only_export)}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Faltan en Exportado</h2>
+    <table>
+      <thead><tr><th>Clave (proyecto | archivo | ruta)</th></tr></thead>
+      <tbody>
+        {rows_missing(only_ui)}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>Diferencias en filas comunes</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Clave</th>
+          <th>Columna</th>
+          <th>Exportado</th>
+          <th>UI</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows_diffs(diffs)}
+      </tbody>
+    </table>
+  </div>
 </body>
 </html>"""
-    out.write_text(html, encoding="utf-8")
-    logging.info("Reporte HTML guardado en %s", out)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"✅ Reporte HTML generado: {out_path}")
+    print(f"   • Faltan en UI: {len(only_export)}")
+    print(f"   • Faltan en Exportado: {len(only_ui)}")
+    print(f"   • Diferencias: {len(diffs)}")
 
+# ========= Main =========
 def main():
-    args = parse_args()
+    print("Cargando Exportado…")
+    df_exp = load_excel_dynamic(EXCEL_EXPORT_PATH, COLUMNS_LOWER)
+    if df_exp.empty:
+        print("❌ Exportado vacío / encabezados no encontrados.")
+        return
+    print(f"  → {len(df_exp)} filas.")
 
-    # 1) Extraer hashes web
-    pw_pass = os.getenv("EFERMIN_PASS")
-    if not pw_pass:
-        logging.error("No está definida la variable EFERMIN_PASS en .env")
-        sys.exit(1)
-    web_hashes = get_web_hashes(args.base_url, args.user, pw_pass)
+    print("Cargando UI…")
+    df_ui = load_excel_dynamic(EXCEL_UI_PATH, COLUMNS_LOWER)
+    if df_ui.empty:
+        print("❌ UI vacío / encabezados no encontrados.")
+        return
+    print(f"  → {len(df_ui)} filas.")
 
-    # 2) Cargar o tomar hardcodeados
-    if args.excel_hashes:
-        raw_list = load_excel_hashes(args.excel_hashes)
-        logging.info("Cargados %d hashes desde %s", len(raw_list), args.excel_hashes.name)
-    else:
-        raw_list = HARDCODED_HASHES.copy()
-        logging.info("Usando lista hardcodeada con %d entradas", len(raw_list))
-
-    total_excel = len(raw_list)
-    unique_excel = set(raw_list)
-    duplicates = total_excel - len(unique_excel)
-    logging.info("Excel: %d totales, %d únicos, %d duplicados", total_excel, len(unique_excel), duplicates)
-
-    # 3) Generar reporte
-    generate_html_report(web_hashes, unique_excel, duplicates, total_excel, args.output_html)
+    only_exp, only_ui, diffs = compare_sets(df_exp, df_ui, COLUMNS_LOWER)
+    generate_html_report_repo(only_exp, only_ui, diffs, HTML_REPORT_PATH)
 
 if __name__ == "__main__":
     main()

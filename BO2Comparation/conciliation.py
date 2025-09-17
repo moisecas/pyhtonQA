@@ -7,8 +7,8 @@ import pandas as pd
 from datetime import datetime
 
 # ————— Configuración —————
-EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\balance (96).xlsx" #bo2
-EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\balance (95).xlsx"#ui 
+EXCEL_EXPORT_PATH = r"C:\Users\moise\Downloads\balance - 2025-08-29T095844.100.xlsx" #bo2
+EXCEL_UI_PATH     = r"C:\Users\moise\Downloads\conciliationqaundia.xlsx"#ui 
 
 # Columnas esperadas (en el orden solicitado), tal cual aparecen en el Excel
 COLUMNS = [
